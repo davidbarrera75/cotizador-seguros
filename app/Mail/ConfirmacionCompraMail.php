@@ -4,40 +4,29 @@ namespace App\Mail;
 
 use App\Models\Cotizacion;
 use Illuminate\Bus\Queueable;
-use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Mail\Mailable;
-use Illuminate\Mail\Mailables\Content;
-use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
 
 class ConfirmacionCompraMail extends Mailable
 {
     use Queueable, SerializesModels;
 
-    // Hacemos la cotización accesible en la vista del email
-    public $cotizacion;
+    public Cotizacion $cotizacion;
 
     public function __construct(Cotizacion $cotizacion)
     {
-        $this->cotizacion = $cotizacion;
+        // ✅ garantizamos que 'pasajeros' venga como Collection (no null)
+        $this->cotizacion = $cotizacion->loadMissing('pasajeros');
     }
 
-    public function envelope(): Envelope
+    public function build()
     {
-        return new Envelope(
-            subject: 'Confirmación de Compra de Asistencia de Viaje',
-        );
-    }
-
-    public function content(): Content
-    {
-        return new Content(
-            view: 'emails.confirmacion-compra',
-        );
-    }
-
-    public function attachments(): array
-    {
-        return [];
+        return $this->subject('Confirmación de compra #'.$this->cotizacion->id)
+            ->view('emails.confirmacion-compra')
+            ->with([
+                'cotizacion' => $this->cotizacion,
+                // por si quieres usar una variable directa en la vista
+                'pasajeros'  => $this->cotizacion->pasajeros,
+            ]);
     }
 }

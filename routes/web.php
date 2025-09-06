@@ -1,17 +1,27 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
+
 use App\Livewire\CotizadorForm;
 use App\Livewire\ResultadosCotizacion;
-use App\Livewire\CheckoutPage; // <-- Esta es la línea que faltaba
+use App\Livewire\CheckoutPage;
 
-/*
-|--------------------------------------------------------------------------
-| Web Routes
-|--------------------------------------------------------------------------
-*/
+// Página principal: formulario del cotizador
+Route::get('/', CotizadorForm::class)->name('home');
 
-Route::get('/', CotizadorForm::class);
-Route::get('/resultados/{cotizacion}', ResultadosCotizacion::class);
-Route::get('/checkout/{cotizacion}', CheckoutPage::class);
-Route::view('/gracias', 'gracias');
+// Resultados de la cotización (con nombre de ruta)
+Route::get('/resultados/{cotizacion}', ResultadosCotizacion::class)
+    ->name('resultados');
+
+// Checkout (opcional pero útil tener nombre)
+Route::get('/checkout/{cotizacion}', CheckoutPage::class)
+    ->name('checkout');
+
+// Página de gracias (si tienes una vista simple)
+Route::view('/gracias', 'gracias')->name('gracias');
+
+// Healthcheck opcional
+Route::get('/ping', fn () => 'pong')->name('ping');
+
+Route::get('/checkout/{cotizacion}', \App\Livewire\CheckoutPage::class)->name('checkout');
+

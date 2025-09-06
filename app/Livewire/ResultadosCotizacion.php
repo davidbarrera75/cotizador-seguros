@@ -4,51 +4,51 @@ namespace App\Livewire;
 
 use Livewire\Component;
 use App\Models\Cotizacion;
-use App\Models\Plan;
-use Carbon\Carbon;
+use App\Services\Cotizador\QuoteService;
 
 class ResultadosCotizacion extends Component
 {
+    /** La cotización recibida por Route Model Binding */
     public Cotizacion $cotizacion;
-    public $planesEncontrados = [];
 
-    // Se ejecuta al cargar el componente, recibe la cotización desde la URL
-    public function mount(Cotizacion $cotizacion)
+    /** Planes listos para mostrar en la vista (con precio_final ya convertido) */
+    public array $planesEncontrados = [];
+
+    /** Moneda calculada por país de origen: 'COP' si CO, de lo contrario 'USD' */
+    public string $moneda = 'COP';
+
+    /**
+     * Se ejecuta al cargar el componente.
+     * Inyectamos QuoteService para centralizar la lógica de días, moneda y conversión.
+     */
+    public function mount(Cotizacion $cotizacion, QuoteService $quotes): void
     {
-        $this->cotizacion = $cotizacion;
-        $this->buscarPlanes();
+        // Cargar relación pasajeros por si la vista o el servicio la usan
+        $this->cotizacion = $cotizacion->loadMissing('pasajeros');
+
+        // Moneda según país de origen (CO => COP; otro => USD)
+        $this->moneda = $quotes->monedaParaPais($this->cotizacion->pais_origen);
+
+        // Cargar planes usando el servicio (incluye selección de tarifa y conversión de moneda)
+        $planes = $quotes->planesParaCotizacion($this->cotizacion);
+
+        // Pasamos a array para la vista Livewire
+        $this->planesEncontrados = $planes->values()->all();
     }
 
-    public function buscarPlanes()
+    /**
+     * (Opcional) Recargar planes manualmente.
+     * Usa el contenedor para resolver el servicio sin necesidad de inyección en la firma.
+     */
+    public function buscarPlanes(): void
     {
-        // Calcular datos clave de la cotización
-        $fechaSalida = Carbon::parse($this->cotizacion->fecha_salida);
-        $fechaRegreso = Carbon::parse($this->cotizacion->fecha_regreso);
-        $diasDeViaje = $fechaRegreso->diffInDays($fechaSalida) + 1;
-        $edadMaximaPasajero = $this->cotizacion->pasajeros->max('edad');
+        /** @var QuoteService $quotes */
+        $quotes = app(QuoteService::class);
 
-        // Buscar planes que coincidan
-        $planes = Plan::where('activo', true)
-            ->where('edad_maxima', '>=', $edadMaximaPasajero)
-            ->whereHas('destinos', function ($query) {
-                $query->where('destino_id', $this->cotizacion->destino_id);
-            })
-            ->whereHas('tiposViaje', function ($query) {
-                $query->where('tipo_viaje_id', $this->cotizacion->tipo_viaje_id);
-            })
-            ->with(['aseguradora', 'tarifas' => function ($query) use ($diasDeViaje) {
-                $query->where('dias', '>=', $diasDeViaje)->orderBy('dias', 'asc');
-            }])
-            ->get();
+        $this->moneda = $quotes->monedaParaPais($this->cotizacion->pais_origen);
+        $planes = $quotes->planesParaCotizacion($this->cotizacion);
 
-        // Filtrar y asignar precio final
-        foreach ($planes as $plan) {
-            $tarifaAplicable = $plan->tarifas->first();
-            if ($tarifaAplicable) {
-                $plan->precio_final = $tarifaAplicable->precio;
-                $this->planesEncontrados[] = $plan;
-            }
-        }
+        $this->planesEncontrados = $planes->values()->all();
     }
 
     public function render()

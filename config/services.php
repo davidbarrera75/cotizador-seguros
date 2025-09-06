@@ -14,6 +14,8 @@ return [
     |
     */
 
+    'admin_whatsapp' => env('ADMIN_WHATSAPP'),
+
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
     ],
