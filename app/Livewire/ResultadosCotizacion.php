@@ -3,6 +3,7 @@
 namespace App\Livewire;
 
 use Livewire\Component;
+use Livewire\Attributes\On;
 use App\Models\Cotizacion;
 use App\Services\Cotizador\QuoteService;
 
@@ -17,6 +18,9 @@ class ResultadosCotizacion extends Component
     /** Moneda calculada por país de origen: 'COP' si CO, de lo contrario 'USD' */
     public string $moneda = 'COP';
 
+    /** Indicador de carga para la recotización */
+    public bool $loadingPlanes = false;
+
     /**
      * Se ejecuta al cargar el componente.
      * Inyectamos QuoteService para centralizar la lógica de días, moneda y conversión.
@@ -26,6 +30,34 @@ class ResultadosCotizacion extends Component
         // Cargar relación pasajeros por si la vista o el servicio la usan
         $this->cotizacion = $cotizacion->loadMissing('pasajeros');
 
+        // Cargar planes iniciales
+        $this->cargarPlanes($quotes);
+    }
+
+    /**
+     * Escucha el evento 'planesActualizados' emitido por RecotizacionPanel
+     */
+    #[On('planesActualizados')]
+    public function actualizarPlanes(): void
+    {
+        $this->loadingPlanes = true;
+        
+        // Recargar la cotización con los nuevos datos
+        $this->cotizacion = $this->cotizacion->fresh(['pasajeros', 'destino', 'tipoViaje']);
+        
+        /** @var QuoteService $quotes */
+        $quotes = app(QuoteService::class);
+        
+        $this->cargarPlanes($quotes);
+        
+        $this->loadingPlanes = false;
+    }
+
+    /**
+     * Método privado para cargar planes usando QuoteService
+     */
+    private function cargarPlanes(QuoteService $quotes): void
+    {
         // Moneda según país de origen (CO => COP; otro => USD)
         $this->moneda = $quotes->monedaParaPais($this->cotizacion->pais_origen);
 
@@ -45,10 +77,7 @@ class ResultadosCotizacion extends Component
         /** @var QuoteService $quotes */
         $quotes = app(QuoteService::class);
 
-        $this->moneda = $quotes->monedaParaPais($this->cotizacion->pais_origen);
-        $planes = $quotes->planesParaCotizacion($this->cotizacion);
-
-        $this->planesEncontrados = $planes->values()->all();
+        $this->cargarPlanes($quotes);
     }
 
     public function render()

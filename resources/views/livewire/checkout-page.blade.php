@@ -22,7 +22,7 @@
         $fr = $cotizacion->fecha_regreso ? \Carbon\Carbon::parse($cotizacion->fecha_regreso) : null;
 
         $dias = 1;
-        if ($fs && $fr) { $dias = max(1, $fr->diffInDays($fs) + 1); }
+        if ($fs && $fr) { $dias = max(1, $fs->diffInDays($fr) + 1); }
 
         $pasajerosCount = $cotizacion->pasajeros()->count();
         $edades = $cotizacion->pasajeros()->pluck('edad')->filter()->values()->all();

@@ -7,6 +7,7 @@ use App\Models\Destino;
 use App\Models\TipoViaje;
 use App\Models\Cotizacion;
 use Illuminate\Support\Facades\DB;
+use App\Models\SliderImage;
 
 class CotizadorForm extends Component
 {
@@ -21,6 +22,21 @@ class CotizadorForm extends Component
 
     /** Uno o más pasajeros, cada uno con 'edad' */
     public array $pasajeros = [['edad' => '']];
+
+    /** Imágenes del slider */
+    public array $sliderImages = [];
+
+    public function mount()
+    {
+        $this->sliderImages = SliderImage::active()
+            ->orderBy('sort')
+            ->limit(4)
+            ->get()
+            ->map(fn($s) => [
+                'url'   => $s->url,         // accessor del modelo
+                'title' => $s->title ?? '',
+            ])->toArray();
+    }
 
     // --- Validación ---
     protected function rules(): array
@@ -76,11 +92,10 @@ class CotizadorForm extends Component
         $this->pasajeros[] = ['edad' => ''];
     }
 
-    public function removerPasajero(int $index): void
+    public function removerPasajero()
     {
         if (count($this->pasajeros) > 1) {
-            unset($this->pasajeros[$index]);
-            $this->pasajeros = array_values($this->pasajeros);
+            array_pop($this->pasajeros);
         }
     }
 
@@ -94,16 +109,15 @@ class CotizadorForm extends Component
         DB::transaction(function () use (&$cotizacion) {
             // 1) Crear la cotización (guardamos ISO-2 en 'pais_origen')
             $cotizacion = Cotizacion::create([
-    'destino_id'        => $this->destino_id,
-    'tipo_viaje_id'     => $this->tipo_viaje_id,
-    'pais_origen'       => $this->pais_origen,        // ISO-2 (p.ej. CL)
-    'origen'            => $this->getPaisNombre(),    // ← nombre (p.ej. Chile) PARA CALMAR LA BD
-    'fecha_salida'      => $this->fecha_salida,
-    'fecha_regreso'     => $this->fecha_regreso,
-    'correo_contacto'   => $this->correo_contacto,
-    'telefono_contacto' => $this->telefono_contacto,
-]);
-
+                'destino_id'        => $this->destino_id,
+                'tipo_viaje_id'     => $this->tipo_viaje_id,
+                'pais_origen'       => $this->pais_origen,        // ISO-2 (p.ej. CL)
+                'origen'            => $this->getPaisNombre(),    // ← nombre (p.ej. Chile) PARA CALMAR LA BD
+                'fecha_salida'      => $this->fecha_salida,
+                'fecha_regreso'     => $this->fecha_regreso,
+                'correo_contacto'   => $this->correo_contacto,
+                'telefono_contacto' => $this->telefono_contacto,
+            ]);
 
             // 2) Crear pasajeros
             foreach ($this->pasajeros as $pasajero) {
@@ -114,18 +128,16 @@ class CotizadorForm extends Component
         });
 
         session()->flash('message', 'Cotización enviada exitosamente.');
-         return redirect()->route('resultados', ['cotizacion' => $cotizacion->id]);
-
-        // Redirigimos fuera de la transacción (más limpio para Livewire)
         return redirect()->route('resultados', ['cotizacion' => $cotizacion->id]);
     }
 
     public function render()
     {
         return view('livewire.cotizador-form', [
-            'destinos'   => Destino::where('activo', true)->get(),
-            'tiposViaje' => TipoViaje::where('activo', true)->get(),
-            'paises'     => $this->paisesOrigen, // disponible para el <select>
+            'destinos'      => Destino::where('activo', true)->get(),
+            'tiposViaje'    => TipoViaje::where('activo', true)->get(),
+            'paises'        => $this->paisesOrigen, // disponible para el <select>
+            'sliderImages'  => $this->sliderImages, // 🔥 para Alpine.js
         ]);
     }
 }

@@ -18,6 +18,11 @@ class TipoViaje extends Model
 
     public function planes()
     {
-        return $this->belongsToMany(Plan::class, 'plan_tipo_viaje', 'tipo_viaje_id', 'plan_id');
+        return $this->belongsToMany(\App\Models\Plan::class, 'plan_tipo_viaje');
     }
+    public function cotizacions()
+{
+    return $this->hasMany(\App\Models\Cotizacion::class, 'tipo_viaje_id');
+}
+
 }

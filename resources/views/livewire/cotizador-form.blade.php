@@ -1,194 +1,233 @@
-<div class="max-w-5xl mx-auto p-6 md:p-8">
+{{-- Raíz única para Livewire --}}
+<div 
+    x-data="{
+        currentSlide: 0,
+        images: @js($sliderImages),
+        init() {
+            if (this.images.length === 0) return;
+            setInterval(() => {
+                this.currentSlide = (this.currentSlide + 1) % this.images.length;
+            }, 5000);
+        }
+    }"
+    class="min-h-screen relative"
+>
 
-    {{-- Título --}}
-    <h1 class="text-2xl md:text-3xl font-bold text-gray-900 mb-4">Cotizador de Seguros de Viaje</h1>
+    {{-- Fondo a pantalla completa (slider dinámico) --}}
+    <div class="absolute inset-0">
+        <template x-for="(image, index) in images" :key="index">
+            <div 
+                x-show="currentSlide === index"
+                x-transition:enter="transition-opacity duration-1000"
+                x-transition:enter-start="opacity-0"
+                x-transition:enter-end="opacity-100"
+                x-transition:leave="transition-opacity duration-1000"
+                x-transition:leave-start="opacity-100"
+                x-transition:leave-end="opacity-0"
+                class="absolute inset-0 bg-cover bg-center"
+                :style="`background-image: url('${image.url}')`"
+            >
+                <div class="absolute inset-0 bg-black/35"></div>
 
-    {{-- Tips / ayuda --}}
-    <div class="mb-6 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-900">
-        <div class="font-semibold mb-1">Consejos rápidos</div>
-        <ul class="list-disc pl-5 space-y-1">
-            <li><strong>Moneda:</strong> si el <em>País de origen</em> es <strong>CO (Colombia)</strong>, verás los precios en <strong>COP</strong>. Para cualquier otro país, en <strong>USD</strong>.</li>
-            <li>El <em>Destino</em> define la cobertura/planes disponibles según tu configuración.</li>
-            <li>Las fechas deben ser válidas (la de regreso posterior a la de salida).</li>
-            <li>Puedes añadir o quitar pasajeros; la edad impacta en los planes disponibles.</li>
-        </ul>
-    </div>
-
-    {{-- Mensaje flash --}}
-    @if (session('message'))
-        <div class="mb-6 rounded-lg bg-emerald-50 text-emerald-700 p-3">
-            {{ session('message') }}
-        </div>
-    @endif
-
-    {{-- Estado de carga Livewire --}}
-    <div wire:loading class="mb-4 rounded-lg border border-gray-200 bg-white p-3 text-gray-600">
-        Procesando…
-    </div>
-
-    {{-- Errores globales (opcional) --}}
-    @if ($errors->any())
-        <div class="mb-6 rounded-lg bg-red-50 text-red-700 p-3 text-sm">
-            <strong>Por favor corrige los siguientes campos:</strong>
-            <ul class="list-disc pl-5 mt-1">
-                @foreach ($errors->all() as $e)
-                    <li>{{ $e }}</li>
-                @endforeach
-            </ul>
-        </div>
-    @endif
-
-    <form wire:submit.prevent="guardarCotizacion" class="space-y-8">
-
-        {{-- FILA: País de origen | Destino (2 columnas) --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {{-- País de origen --}}
-            <div>
-                <label class="block text-sm text-gray-600 mb-1">País de origen</label>
-                <select class="w-full border rounded px-3 py-2" wire:model.defer="pais_origen">
-                    @foreach($paises as $code => $nombre)
-                        <option value="{{ $code }}">{{ $nombre }}</option>
-                    @endforeach
-                </select>
-                @error('pais_origen') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
-            </div>
-
-            {{-- Destino --}}
-            <div>
-                <label class="block text-sm text-gray-600 mb-1">Destino</label>
-                <select class="w-full border rounded px-3 py-2" wire:model.defer="destino_id">
-                    <option value="">Selecciona…</option>
-                    @foreach($destinos as $d)
-                        <option value="{{ $d->id }}">{{ $d->nombre }}</option>
-                    @endforeach
-                </select>
-                @error('destino_id') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
-            </div>
-        </div>
-
-        {{-- FILA: Tipo de viaje | (espacio libre futuro) --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {{-- Tipo de viaje --}}
-            <div>
-                <label class="block text-sm text-gray-600 mb-1">Tipo de viaje</label>
-                <select class="w-full border rounded px-3 py-2" wire:model.defer="tipo_viaje_id">
-                    <option value="">Selecciona…</option>
-                    @foreach($tiposViaje as $tv)
-                        <option value="{{ $tv->id }}">{{ $tv->nombre }}</option>
-                    @endforeach
-                </select>
-                @error('tipo_viaje_id') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
-            </div>
-            <div></div>
-        </div>
-
-        {{-- FILA: Fechas (salida / regreso) --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm text-gray-600 mb-1">Fecha de salida</label>
-                <input type="date" class="w-full border rounded px-3 py-2"
-                       wire:model.defer="fecha_salida">
-                @error('fecha_salida') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
-            </div>
-            <div>
-                <label class="block text-sm text-gray-600 mb-1">Fecha de regreso</label>
-                <input type="date" class="w-full border rounded px-3 py-2"
-                       wire:model.defer="fecha_regreso">
-                @error('fecha_regreso') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
-            </div>
-        </div>
-
-        {{-- FILA: Contacto (correo / teléfono) --}}
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-                <label class="block text-sm text-gray-600 mb-1">Correo de contacto</label>
-                <input type="email" class="w-full border rounded px-3 py-2"
-                       placeholder="tu@correo.com"
-                       wire:model.defer="correo_contacto">
-                @error('correo_contacto') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
-            </div>
-            <div>
-                <label class="block text-sm text-gray-600 mb-1">Teléfono (opcional)</label>
-                <input type="text" class="w-full border rounded px-3 py-2"
-                       placeholder="Ej: 3001234567"
-                       wire:model.defer="telefono_contacto">
-                @error('telefono_contacto') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
-            </div>
-        </div>
-
-        {{-- PASAJEROS (rediseñado) --}}
-        <section class="rounded-xl border border-gray-200 bg-white p-5">
-            <div class="mb-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-                <div class="flex items-center gap-3">
-                    <h2 class="text-lg font-semibold text-gray-900">Pasajeros</h2>
-                    <span class="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs text-gray-700">
-                        {{ is_iterable($pasajeros ?? []) ? count($pasajeros) : 0 }} total
-                    </span>
-                </div>
-                <div class="text-xs text-gray-500">
-                    Puedes agregar o quitar pasajeros. Máximo recomendado: 10.
+                {{-- Título opcional desde BD --}}
+                <div class="absolute bottom-10 left-10 text-white z-20">
+                    <h2 x-text="image.title" class="text-2xl font-bold drop-shadow"></h2>
                 </div>
             </div>
+        </template>
 
-            <div class="space-y-4">
-                @foreach(($pasajeros ?? []) as $i => $p)
-                    <div class="rounded-lg border border-gray-100 bg-white p-4 shadow-sm" wire:key="pax-{{ $i }}">
-                        <div class="mb-3 flex items-start justify-between gap-3">
-                            <div class="flex items-center gap-2">
-                                <div class="h-8 w-8 grid place-items-center rounded-full bg-blue-50 text-blue-700 text-sm font-semibold">
-                                    {{ $i + 1 }}
-                                </div>
-                                <h3 class="text-sm font-medium text-gray-900">
-                                    Pasajero #{{ $i + 1 }}
-                                </h3>
+        {{-- Puntos del slider --}}
+        <div class="absolute bottom-6 left-6 flex gap-2 z-10">
+            <template x-for="(image, index) in images" :key="index">
+                <button 
+                    @click="currentSlide = index"
+                    class="w-3 h-3 rounded-full transition-all"
+                    :class="currentSlide === index ? 'bg-white' : 'bg-white/50'">
+                </button>
+            </template>
+        </div>
+    </div>
+
+    {{-- Contenido (card flotante) --}}
+    <div class="relative z-10 flex items-center justify-end min-h-screen px-4 md:px-8">
+        <div class="w-full max-w-lg">
+
+            {{-- Card flotante (más compacta) --}}
+            <div class="rounded-2xl border border-white/30 bg-white/90 backdrop-blur-xl shadow-2xl">
+                {{-- Encabezado --}}
+                <div class="px-6 pt-6 text-center">
+                    <h2 class="text-2xl font-extrabold text-gray-900">
+                        Compra fácil, <span class="text-orange-600">rápido</span> y seguro
+                    </h2>
+                    <p class="text-sm text-gray-600">Obtén tu cotización en segundos</p>
+                </div>
+
+                {{-- Mensajes --}}
+                <div class="px-6 mt-4">
+                    @if (session('message'))
+                        <div class="mb-3 rounded-lg bg-emerald-50 text-emerald-700 p-3 text-sm text-center">
+                            {{ session('message') }}
+                        </div>
+                    @endif
+
+                    <div wire:loading class="mb-3 rounded-lg border border-gray-200 bg-white/90 p-3 text-gray-700 text-sm text-center">
+                        <svg class="animate-spin w-4 h-4 inline mr-1" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
+                        </svg>
+                        Procesando...
+                    </div>
+                </div>
+
+                @php($paxCount = count($pasajeros ?? []))
+                @php($today = date('Y-m-d'))
+
+                {{-- Formulario --}}
+                <form wire:submit.prevent="guardarCotizacion" class="px-6 pb-6 space-y-5">
+                    {{-- Destino / Origen --}}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-800 mb-1">Destino</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-3 flex items-center text-orange-500">📍</span>
+                                <select
+                                    class="w-full pl-8 pr-3 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    wire:model.defer="destino_id">
+                                    <option value="">Seleccionar destino...</option>
+                                    @foreach($destinos as $d)
+                                        <option value="{{ $d->id }}">{{ $d->nombre }}</option>
+                                    @endforeach
+                                </select>
                             </div>
-
-                            @if($i > 0)
-                                <button type="button"
-                                        class="inline-flex items-center rounded-md border border-red-200 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
-                                        wire:click="removerPasajero({{ $i }})">
-                                    Eliminar
-                                </button>
-                            @endif
+                            @error('destino_id') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
                         </div>
 
-                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {{-- Edad --}}
-                            <div>
-                                <label class="block text-sm text-gray-600 mb-1">Edad</label>
-                                <input type="number" min="0" max="120" class="w-full border rounded px-3 py-2"
-                                       placeholder="Ej: 32"
-                                       wire:model.defer="pasajeros.{{ $i }}.edad">
-                                @error("pasajeros.$i.edad")
-                                    <div class="text-red-600 text-xs mt-1">{{ $message }}</div>
-                                @enderror
+                        <div>
+                            <label class="block text-sm font-medium text-gray-800 mb-1">País de origen</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-3 flex items-center text-orange-500">🧭</span>
+                                <select
+                                    class="w-full pl-8 pr-3 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                    wire:model.defer="pais_origen">
+                                    @foreach($paises as $code => $nombre)
+                                        <option value="{{ $code }}">{{ $nombre }}</option>
+                                    @endforeach
+                                </select>
                             </div>
-
-                            {{-- Espacio para futuros campos (nombre, documento, etc.) --}}
-                            <div class="hidden md:block"></div>
+                            @error('pais_origen') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
                         </div>
                     </div>
-                @endforeach
-            </div>
 
-            <div class="mt-4 flex items-center justify-between">
-                <p class="text-xs text-gray-500">
-                    Consejo: si todos tienen edades similares, comienza llenando la del primer pasajero y luego agrega más.
-                </p>
-                <button type="button"
-                        class="inline-flex items-center rounded bg-blue-600 px-3 py-2 text-white text-sm font-semibold hover:bg-blue-700"
-                        wire:click="agregarPasajero">
-                    + Agregar pasajero
-                </button>
-            </div>
-        </section>
+                    {{-- Fechas con validación de fechas pasadas --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-800 mb-1">Fecha de viaje</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <input type="date"
+                                       min="{{ $today }}"
+                                       class="w-full px-3 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                       wire:model.defer="fecha_salida"
+                                       placeholder="Fecha de salida">
+                                <label class="text-xs text-gray-500 mt-1 block">Salida</label>
+                            </div>
+                            <div>
+                                <input type="date"
+                                       min="{{ $today }}"
+                                       class="w-full px-3 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                       wire:model.defer="fecha_regreso"
+                                       placeholder="Fecha de regreso">
+                                <label class="text-xs text-gray-500 mt-1 block">Regreso</label>
+                            </div>
+                        </div>
+                        @error('fecha_salida') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
+                        @error('fecha_regreso') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
+                    </div>
 
-        {{-- Acciones --}}
-        <div class="flex items-center justify-end gap-3">
-            <button type="submit"
-                    class="inline-flex items-center rounded bg-green-600 px-4 py-2.5 text-white font-semibold hover:bg-green-700">
-                Buscar planes
-            </button>
+                    {{-- Tipo de viaje --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-800 mb-1">Tipo de viaje</label>
+                        <select
+                            class="w-full px-3 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                            wire:model.defer="tipo_viaje_id">
+                            <option value="">Seleccionar tipo...</option>
+                            @foreach($tiposViaje as $tv)
+                                <option value="{{ $tv->id }}">{{ $tv->nombre }}</option>
+                            @endforeach
+                        </select>
+                        @error('tipo_viaje_id') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
+                    </div>
+
+                    {{-- Contacto --}}
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-800 mb-1">E-mail</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-3 flex items-center text-orange-500">@</span>
+                                <input type="email" placeholder="tu@email.com"
+                                       class="w-full pl-8 pr-3 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                       wire:model.defer="correo_contacto">
+                            </div>
+                            @error('correo_contacto') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
+                        </div>
+
+                        <div>
+                            <label class="block text-sm font-medium text-gray-800 mb-1">Teléfono</label>
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-3 flex items-center text-orange-500">📞</span>
+                                <input type="text" placeholder="Ej: 3001234567"
+                                       class="w-full pl-8 pr-3 py-3 border border-gray-300 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                       wire:model.defer="telefono_contacto">
+                            </div>
+                            @error('telefono_contacto') <div class="text-red-600 text-xs mt-1">{{ $message }}</div> @enderror
+                        </div>
+                    </div>
+
+                    {{-- Pasajeros: control ± y edades inline --}}
+                    <div>
+                        <label class="block text-sm font-medium text-gray-800 mb-2">Cantidad de pasajeros</label>
+                        <div class="flex items-center justify-center gap-6">
+                            <button type="button"
+                                    wire:click="removerPasajero"
+                                    @disabled($paxCount <= 1)
+                                    class="w-10 h-10 rounded-full bg-orange-100 text-orange-700 text-xl font-bold flex items-center justify-center hover:bg-orange-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                                −
+                            </button>
+
+                            <span class="text-lg font-semibold w-8 text-center select-none">{{ $paxCount }}</span>
+
+                            <button type="button"
+                                    wire:click="agregarPasajero"
+                                    @disabled($paxCount >= 10)
+                                    class="w-10 h-10 rounded-full bg-orange-100 text-orange-700 text-xl font-bold flex items-center justify-center hover:bg-orange-200 disabled:opacity-40 disabled:cursor-not-allowed">
+                                +
+                            </button>
+                        </div>
+
+                        {{-- Edades --}}
+                        <div class="mt-3 flex flex-wrap gap-2 justify-center">
+                            @foreach(($pasajeros ?? []) as $i => $p)
+                                <input type="number" min="0" max="120"
+                                       class="w-16 px-2 py-2 border border-gray-300 rounded-md text-center text-sm bg-white focus:outline-none focus:ring-2 focus:ring-orange-500"
+                                       placeholder="{{ $i + 1 }}"
+                                       wire:model.defer="pasajeros.{{ $i }}.edad"
+                                       wire:key="pax-edad-{{ $i }}">
+                            @endforeach
+                        </div>
+
+                        @if($errors->has('pasajeros.*.edad'))
+                            <div class="text-red-600 text-xs mt-1 text-center">Por favor ingresa edades válidas</div>
+                        @endif
+                    </div>
+
+                    {{-- Botón principal --}}
+                    <button type="submit"
+                            class="w-full bg-gradient-to-r from-orange-500 to-orange-600 text-white font-bold py-4 rounded-lg text-lg shadow-lg hover:scale-[1.02] transition">
+                        COTIZAR GRATIS
+                    </button>
+
+                    <p class="text-xs text-gray-600 text-center">Al cotizar estás aceptando nuestros T&C</p>
+                </form>
+            </div>
         </div>
-    </form>
+    </div>
 </div>

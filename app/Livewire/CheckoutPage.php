@@ -20,6 +20,11 @@ class CheckoutPage extends Component
     public ?Plan $plan = null;
     public array $pasajerosData = [];
 
+    // ✅ Nuevas propiedades para el resumen
+    public ?float $precioMostrado = null;
+    public string $monedaMostrada = 'COP';
+    public ?float $tasaUsdCop = null;
+
     public array $tiposDeDocumento = [
         'Cédula de ciudadanía','Cédula de extranjería','Pasaporte','Tarjeta de identidad',
     ];
@@ -33,6 +38,9 @@ class CheckoutPage extends Component
         if ($planId = (int) $request->query('plan')) {
             $this->plan = Plan::with('aseguradora')->find($planId);
         }
+
+        // ✅ Calcular precio y moneda para mostrar en el resumen
+        $this->calcularPrecioResumen($quotes);
 
         $this->pasajerosData = [];
         $pasajeros = $this->cotizacion->pasajeros()->get();
@@ -50,6 +58,31 @@ class CheckoutPage extends Component
                 'contacto_emergencia_telefono' => $pasajero->contacto_emergencia_telefono ?? '',
                 'contacto_emergencia_email' => $pasajero->contacto_emergencia_email ?? '',
             ];
+        }
+    }
+
+    /**
+     * ✅ Nuevo método para calcular precio del resumen
+     */
+    private function calcularPrecioResumen(QuoteService $quotes): void
+    {
+        $this->monedaMostrada = $quotes->monedaParaPais($this->cotizacion->pais_origen);
+        $this->tasaUsdCop = $quotes->obtenerTasaUsdCop();
+
+        if (!$this->plan) {
+            // Si no hay plan seleccionado, no mostrar precio
+            $this->precioMostrado = null;
+            return;
+        }
+
+        // Obtener el plan con precio calculado usando QuoteService
+        $planesCalculados = $quotes->planesParaCotizacion($this->cotizacion);
+        $planConPrecio = $planesCalculados->where('id', $this->plan->id)->first();
+
+        if ($planConPrecio && isset($planConPrecio->precio_final)) {
+            $this->precioMostrado = (float) $planConPrecio->precio_final;
+        } else {
+            $this->precioMostrado = null;
         }
     }
 
